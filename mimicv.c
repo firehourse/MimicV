@@ -29,6 +29,8 @@ typedef struct {
     int page_table[MAX_REQUESTS][MAX_BLOCK_PER_REQUEST];
     // 空間換時間，紀錄借了多少塊
     int borrow_count[MAX_REQUESTS];
+    // 借出總額
+    int total_borrow_count;
 } page_table;
 
 
@@ -57,6 +59,7 @@ page_table* init_page_table() {
         return NULL;
     }
     // 初始化分頁表
+    table->total_borrow_count = 0;
     for (int i = 0; i<MAX_REQUESTS; i++) {
         table->borrow_count[i] = 0;
         for (int j = 0; j<MAX_BLOCK_PER_REQUEST; j++) {
@@ -66,4 +69,42 @@ page_table* init_page_table() {
     return table;
 }
 
+// 接受調度請求，分配記憶體區塊
+bool allocate_block(memory_pool *pool, page_table *table, int request_id, int block_quantity) {
+    // 檢查請求是否合法
+    if (request_id < 0 || request_id >= MAX_REQUESTS || block_quantity <= 0 || block_quantity > MAX_BLOCK_PER_REQUEST) {
+        return false;
+    }
+    // 檢查記憶體區塊是否足夠
+    if (block_quantity > pool->block_count - table->total_borrow_count) {
+        return false;
+    }
+    // 檢查是否超出每個請求的總上限
+    if (block_quantity + table->borrow_count[request_id]  > MAX_BLOCK_PER_REQUEST) {
+        return false;
+    }
+    // 分配記憶體區塊
+    int found = 0;
+    for (int j = 0; j < MAX_BLOCKS; j++) {
+        if (!pool->bitmap[j]) {
+            // 填坑
+            pool->bitmap[j] = true;
+        
+            // 紀錄到對應 Request 的 Page Table
+            int next_p_idx = table->borrow_count[request_id];
+            table->page_table[request_id][next_p_idx] = j;
+        
+            // 更新計數器
+            table->borrow_count[request_id]++;
+            table->total_borrow_count++;
+            found++;
+
+            // 達成目標數量，直接收工
+            if (found == block_quantity) {
+                return true; 
+            }
+        }
+    }
+    return false;
+}
 
