@@ -108,3 +108,17 @@ bool allocate_block(memory_pool *pool, page_table *table, int request_id, int bl
     return false;
 }
 
+bool free_mem_by_request(memory_pool *pool, page_table *table, int request_id) {
+    if (request_id < 0||) {
+        return false;
+    }
+    int count = table->borrow_count[request_id];
+    for (int i = 0; i < count; i++) {
+        int block_idx = table->page_table[request_id][i];
+        _free_single_block(pool, block_idx); // 呼叫底層
+        table->page_table[request_id][i] = -1;
+    }
+    table->total_borrow_count -= count;
+    table->borrow_count[request_id] = 0;
+
+}
