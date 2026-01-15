@@ -1,6 +1,6 @@
 #ifndef QUEUE_H
 #define QUEUE_H
-
+#include <stdio.h> 
 #include <stdbool.h>
 
 // queue　結構

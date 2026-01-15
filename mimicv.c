@@ -1,6 +1,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <stdbool.h>
+#include "queue.h"
 
 // 區塊大小
 #define BLOCK_SIZE 128
@@ -19,7 +20,7 @@ typedef struct {
     // 記憶體區塊數量，避免後面有擴容需求好了
     int block_count;
     // 管理記憶體是否有被占用
-    bool bitmap[MAX_BLOCKS];
+    Queue *bitmap;
 } memory_pool;
 
 
@@ -41,9 +42,14 @@ memory_pool* init_memory_pool() {
     if (pool == NULL) {
         return NULL;
     }
+    pool->bitmap = create_queue(MAX_BLOCKS);
+    if (pool->bitmap == NULL) {
+        free(pool);
+        return NULL;
+    }
     // 初始化布林
     for (int i = 0; i<MAX_BLOCKS; i++) {
-        pool->bitmap[i] = false;
+        enqueue(pool->bitmap,i);
     }
     // 記錄區塊大小
     pool->block_count = MAX_BLOCKS;
@@ -84,41 +90,35 @@ bool allocate_block(memory_pool *pool, page_table *table, int request_id, int bl
         return false;
     }
     // 分配記憶體區塊
-    int found = 0;
-    for (int j = 0; j < MAX_BLOCKS; j++) {
-        if (!pool->bitmap[j]) {
-            // 填坑
-            pool->bitmap[j] = true;
-        
-            // 紀錄到對應 Request 的 Page Table
-            int next_p_idx = table->borrow_count[request_id];
-            table->page_table[request_id][next_p_idx] = j;
-        
-            // 更新計數器
-            table->borrow_count[request_id]++;
-            table->total_borrow_count++;
-            found++;
+    for (int j = 0; j < block_quantity; j++) {
 
-            // 達成目標數量，直接收工
-            if (found == block_quantity) {
-                return true; 
-            }
-        }
+        // 填坑
+        int value =dequeue(pool->bitmap);
+
+        // 紀錄到對應 Request 的 Page Table
+        int next_p_idx = table->borrow_count[request_id];
+        table->page_table[request_id][next_p_idx] = value;
+    
+        // 更新計數器
+        table->borrow_count[request_id]++;
+        table->total_borrow_count++;
     }
-    return false;
+    return true;
 }
 
 bool free_mem_by_request(memory_pool *pool, page_table *table, int request_id) {
-    if (request_id < 0||) {
+    if (request_id < 0|| request_id >= MAX_REQUESTS) {
         return false;
     }
     int count = table->borrow_count[request_id];
     for (int i = 0; i < count; i++) {
         int block_idx = table->page_table[request_id][i];
-        _free_single_block(pool, block_idx); // 呼叫底層
+        // 回queue
+        enqueue(pool->bitmap, block_idx);
+        // 清空紀錄
         table->page_table[request_id][i] = -1;
     }
     table->total_borrow_count -= count;
     table->borrow_count[request_id] = 0;
-
+    return true;
 }

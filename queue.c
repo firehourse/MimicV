@@ -36,3 +36,17 @@ int dequeue(Queue *queue) {
     queue->size--;
     return value;
 }
+
+bool is_empty(Queue *queue) {
+    if (queue->size == 0 ) {
+        return true;
+    }
+    return false;
+}
+
+bool is_full(Queue *queue) {
+    if (queue->capacity == queue->size) {
+        return true;
+    }
+    return false;
+}
